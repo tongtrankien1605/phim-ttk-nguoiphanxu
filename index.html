@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Phim Người Phán Xử - Tống Trần Kiên</title>
+        <link rel="icon" type="image/x-icon" href="favicon.ico" />
+        <style>
+            body {
+                margin: 0;
+                padding: 0;
+                overflow: hidden;
+                background: #000;
+                font-family: Arial, sans-serif;
+            }
+            .video-container {
+                position: relative;
+                width: 100vw;
+                height: 95vh;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            }
+            video {
+                width: 98%;
+                max-height: 95vh;
+                object-fit: contain;
+            }
+            .video-title {
+                position: absolute;
+                top: 15px;
+                left: 105px;
+                color: #fff;
+                font-size: 18px;
+                font-weight: 700;
+                text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+                max-width: 80%;
+                word-wrap: break-word;
+                z-index: 5;
+            }
+            .video-info {
+                position: absolute;
+                top: 15px;
+                right: 105px;
+                color: #fff;
+                font-size: 16px;
+                text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+                z-index: 5;
+                text-align: left;
+            }
+            .actor, .duration {
+                display: flex;
+                align-items: center;
+                margin-bottom: 5px;
+            }
+            .actor::before, .duration::before {
+                content: "Coder: ";
+                display: inline-block;
+                width: 80px;
+            }
+            .duration::before {
+                content: "Time: ";
+            }
+            .episode-selector {
+                position: absolute;
+                top: 50px;
+                left: 105px;
+                z-index: 5;
+            }
+            .episode-selector select {
+                background: rgba(0, 0, 0, 0.7);
+                color: #fff;
+                padding: 6px 10px;
+                border-radius: 6px;
+                font-size: 14px;
+                cursor: pointer;
+                border: none;
+                outline: none;
+            }
+            .loading {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                color: #fff;
+                font-size: 24px;
+                z-index: 10;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="video-container">
+            <video id="videoPlayer" controls autoplay>
+                <source src="" type="video/mp4" />
+                Your browser does not support the video tag.
+            </video>
+            <div class="video-title" id="videoTitle"></div>
+            <div class="video-info" id="videoInfo">
+                <div class="actor" id="coder"></div>
+                <div class="duration" id="duration"></div>
+            </div>
+            <div class="episode-selector">
+                <select id="episodeSelect" onchange="changeEpisode()">
+                    <option value="">Chọn tập</option>
+                </select>
+            </div>
+            <div class="loading" id="loading">Đang tải...</div>
+        </div>
+        <script>
+            let videoList = [];
+            let currentVideoIndex = 0;
+            const videoPlayer = document.getElementById("videoPlayer");
+            const videoTitle = document.getElementById("videoTitle");
+            const loading = document.getElementById("loading");
+            const episodeSelect = document.getElementById("episodeSelect");
+
+            // Hàm parse CSV thành mảng đối tượng
+            function parseCSV(csvText) {
+                const lines = csvText.trim().split("\n");
+                const headers = lines[0].split(",").map((header) => header.trim());
+                const urlIndex = headers.indexOf("url");
+                const titleIndex = headers.indexOf("title");
+                const tapIndex = headers.indexOf("tap");
+                const coderIndex = headers.indexOf("coder");
+                const durationIndex = headers.indexOf("duration");
+                const result = [];
+                for (let i = 1; i < lines.length; i++) {
+                    const cols = lines[i].split(",").map((col) => col.trim());
+                    if (cols[urlIndex] && cols[titleIndex] && cols[tapIndex]) {
+                        result.push({
+                            url: cols[urlIndex],
+                            title: cols[titleIndex],
+                            tap: cols[tapIndex],
+                            coder: cols[coderIndex] || "Tống Trần Kiên",
+                            duration: cols[durationIndex] || ".....",
+                        });
+                    }
+                }
+                return result;
+            }
+
+            // Hàm lưu chỉ số video hiện tại vào localStorage
+            function saveVideoIndex(index) {
+                localStorage.setItem("lastVideoIndex", index);
+            }
+
+            // Hàm lấy chỉ số video cuối cùng từ localStorage
+            function getLastVideoIndex() {
+                const savedIndex = localStorage.getItem("lastVideoIndex");
+                return savedIndex !== null ? parseInt(savedIndex) : 0;
+            }
+
+            // Hàm phát video hiện tại
+            function playVideo(index) {
+                if (index >= 0 && index < videoList.length) {
+                    videoPlayer.src = videoList[index].url;
+                    videoPlayer.currentTime = 0; // Bắt đầu từ đầu
+                    videoTitle.textContent = videoList[index].title;
+                    document.getElementById("coder").textContent = videoList[index].coder;
+                    document.getElementById("duration").textContent = videoList[index].duration;
+                    currentVideoIndex = index;
+                    saveVideoIndex(index);
+                    episodeSelect.value = index;
+
+                    const playPromise = videoPlayer.play();
+                    if (playPromise !== undefined) {
+                        playPromise.catch((error) => {
+                            console.error("Autoplay failed:", error);
+                            loading.textContent = "Vui lòng nhấn vào video để phát";
+                        });
+                    }
+                }
+            }
+
+            // Hàm thay đổi tập khi chọn từ dropdown
+            function changeEpisode() {
+                const selectedIndex = parseInt(episodeSelect.value);
+                if (!isNaN(selectedIndex)) {
+                    playVideo(selectedIndex);
+                }
+            }
+
+            // Hàm tải và hiển thị danh sách tập
+            function populateEpisodeSelect() {
+                episodeSelect.innerHTML = '<option value="">Chọn tập</option>';
+                videoList.forEach((video, index) => {
+                    const option = document.createElement("option");
+                    option.value = index;
+                    option.textContent = video.tap;
+                    episodeSelect.appendChild(option);
+                });
+            }
+
+            // Tải file CSV
+            fetch("./data.csv")
+                .then((response) => {
+                    if (!response.ok) throw new Error("Không thể tải file CSV");
+                    return response.text();
+                })
+                .then((data) => {
+                    videoList = parseCSV(data);
+                    loading.style.display = "none";
+                    if (videoList.length > 0) {
+                        populateEpisodeSelect();
+                        currentVideoIndex = getLastVideoIndex();
+                        if (currentVideoIndex >= videoList.length) {
+                            currentVideoIndex = 0;
+                        }
+                        playVideo(currentVideoIndex);
+                    } else {
+                        loading.textContent = "Không tìm thấy video trong danh sách";
+                    }
+                })
+                .catch((error) => {
+                    console.error("Lỗi tải CSV:", error);
+                    loading.textContent = "Lỗi tải danh sách video";
+                });
+
+            // Phát lại video khi kết thúc
+            videoPlayer.addEventListener("ended", () => {
+                videoPlayer.currentTime = 0;
+                videoPlayer.play();
+            });
+        </script>
+    </body>
+</html>
